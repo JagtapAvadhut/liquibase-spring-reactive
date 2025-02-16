@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+    <!-- DDL -->
+    <include file="db/changelog/ddl/create-customer.xml"/>
+    <include file="db/changelog/ddl/create-order.xml"/>
+    <include file="db/changelog/ddl/create-student.xml"/>
+    <include file="db/changelog/ddl/create-course.xml"/>
+    <include file="db/changelog/ddl/create-student_courses.xml"/>
+    <!-- DML -->
+    <include file="db/changelog/dml/insert-customer.xml"/>
+    <include file="db/changelog/dml/insert-customer2.xml"/>
+    <include file="db/changelog/dml/delete-customer.xml"/>
+    <include file="db/changelog/dml/delete-customer2.xml"/>
+</databaseChangeLog>
