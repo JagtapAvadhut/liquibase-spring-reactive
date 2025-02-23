@@ -56,10 +56,7 @@ public class CustomerServiceImpl implements CustomerService {
                     if (Boolean.TRUE.equals(exists)) {
                         log.error("Customer already exists with email: {}", customerDTO.getEmail());
                         return CustomerNotFoundException.error(customerDTO.getEmail(), ErrorCode.CUSTOMER_ALREADY_EXISTS);
-                    } else if (Boolean.FALSE.equals(exists)) {
-                        return Mono.error(new RuntimeException("Customer already exists with email: " + customerDTO));
                     }
-
                     Customer customer = new Customer();
                     customer.setEmail(customerDTO.getEmail());
                     customer.setFirstName(customerDTO.getFirstName());

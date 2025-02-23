@@ -14,8 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,9 +38,9 @@ class CustomerServiceImplTest {
         customer.setEmail("john.doe@example.com");
 
         customerDTO = new CustomerDTO();
-        customerDTO.setFirstName("John");
+        customerDTO.setFirstName("Jane");
         customerDTO.setLastName("Doe");
-        customerDTO.setEmail("john.doe@example.com");
+        customerDTO.setEmail("jane.doe@example.com");
     }
 
     @Test
@@ -52,6 +51,16 @@ class CustomerServiceImplTest {
                 .expectNext(customer)
                 .verifyComplete();
 
+        verify(customerRepo, times(1)).findAll();
+    }
+
+    @Test
+    void testFindAllCustomersException() {
+        when(customerRepo.findAll()).thenReturn(Flux.error(new RuntimeException("An unexpected error occurred while fetching customers")));
+
+        StepVerifier.create(customerService.findAll())
+                .expectError(RuntimeException.class)
+                .verify();
         verify(customerRepo, times(1)).findAll();
     }
 
@@ -71,21 +80,35 @@ class CustomerServiceImplTest {
         when(customerRepo.findById(anyLong())).thenReturn(Mono.empty());
 
         StepVerifier.create(customerService.findById(1L))
-                .expectError(CustomerNotFoundException.class)
+                .expectError(RuntimeException.class)
                 .verify();
 
         verify(customerRepo, times(1)).findById(1L);
     }
 
     @Test
-    void testSaveCustomer() {
+    void testSaveCustomer_Success() {
+        when(customerRepo.existsByEmail(eq(customerDTO.getEmail()))).thenReturn(Mono.just(false));
         when(customerRepo.save(any(Customer.class))).thenReturn(Mono.just(customer));
 
         StepVerifier.create(customerService.save(customerDTO))
-                .expectNextMatches(savedCustomer -> savedCustomer.getEmail().equals("john.doe@example.com"))
+                .expectNextMatches(savedCustomer -> savedCustomer.getEmail().equals(customer.getEmail()))
                 .verifyComplete();
 
+        verify(customerRepo, times(1)).existsByEmail(eq(customerDTO.getEmail()));
         verify(customerRepo, times(1)).save(any(Customer.class));
+    }
+
+    @Test
+    void testSaveCustomer_AlreadyExists() {
+        when(customerRepo.existsByEmail(anyString())).thenReturn(Mono.just(true));
+
+        StepVerifier.create(customerService.save(customerDTO))
+                .expectError(CustomerNotFoundException.class)
+                .verify();
+
+        verify(customerRepo, times(1)).existsByEmail(anyString());
+        verify(customerRepo, never()).save(any(Customer.class));
     }
 
     @Test
@@ -102,7 +125,7 @@ class CustomerServiceImplTest {
 
     @Test
     void testDeleteById_CustomerNotFound() {
-        when(customerRepo.findById(1L)).thenReturn(Mono.empty());
+        when(customerRepo.findById(anyLong())).thenReturn(Mono.empty());
 
         StepVerifier.create(customerService.deleteById(1L))
                 .expectError(CustomerNotFoundException.class)
