@@ -3,6 +3,7 @@ package com.reactive.liquibase.service.impl;
 import com.reactive.liquibase.dto.CustomerDTO;
 import com.reactive.liquibase.entity.Customer;
 import com.reactive.liquibase.exceptions.CustomerNotFoundException;
+import com.reactive.liquibase.exceptions.ErrorCode;
 import com.reactive.liquibase.repository.CustomerRepo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -71,7 +73,6 @@ class CustomerServiceImplTest {
         StepVerifier.create(customerService.findById(1L))
                 .expectNextMatches(foundCustomer -> foundCustomer.getFirstName().equals("JOHN")) // Uppercase check
                 .verifyComplete();
-
         verify(customerRepo, times(1)).findById(1L);
     }
 
@@ -101,13 +102,15 @@ class CustomerServiceImplTest {
 
     @Test
     void testSaveCustomer_AlreadyExists() {
-        when(customerRepo.existsByEmail(anyString())).thenReturn(Mono.just(true));
+        when(customerRepo.existsByEmail(eq(customerDTO.getEmail()))).thenReturn(Mono.just(true));
 
         StepVerifier.create(customerService.save(customerDTO))
-                .expectError(CustomerNotFoundException.class)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof CustomerNotFoundException &&
+                                throwable.getMessage().contains(customerDTO.getEmail()))
                 .verify();
 
-        verify(customerRepo, times(1)).existsByEmail(anyString());
+        verify(customerRepo, times(1)).existsByEmail(eq(customerDTO.getEmail()));
         verify(customerRepo, never()).save(any(Customer.class));
     }
 
@@ -134,4 +137,24 @@ class CustomerServiceImplTest {
         verify(customerRepo, times(1)).findById(1L);
         verify(customerRepo, never()).deleteById(anyLong());
     }
+
+    @Test
+    void testSaveCustomer_InternalError() {
+        // Mock database behavior
+        when(customerRepo.existsByEmail(eq(customerDTO.getEmail()))).thenReturn(Mono.just(false));
+        when(customerRepo.save(any(Customer.class))).thenReturn(Mono.error(new RuntimeException("Database error"))); // Trigger an error
+
+        // Validate error handling
+        StepVerifier.create(customerService.save(customerDTO))
+                .expectErrorSatisfies(throwable -> {
+                    assertInstanceOf(CustomerNotFoundException.class, throwable);
+                    assertEquals(ErrorCode.CUSTOMER_INTERNAL_ERROR, ((CustomerNotFoundException) throwable).getErrorCode());
+                })
+                .verify();
+
+        // Verify method calls
+        verify(customerRepo, times(1)).existsByEmail(eq(customerDTO.getEmail()));
+        verify(customerRepo, times(1)).save(any(Customer.class));
+    }
+
 }
